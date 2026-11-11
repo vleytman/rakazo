@@ -587,9 +587,13 @@ export function mcpRoutes(ctx: RouterContext) {
       oauth: {
         begin: authed.mcp.oauth.begin.handler(async ({ context, input }) => {
           try {
-            const expectedRedirect = new URL("/mcp/oauth/callback", deps.env.webOrigin).toString();
+            const webRedirect = new URL("/mcp/oauth/callback", deps.env.webOrigin).toString();
+            const expectedRedirect = deps.env.mcpOAuthRedirectOrigin
+              ? new URL("/mcp/oauth/callback", deps.env.mcpOAuthRedirectOrigin).toString()
+              : webRedirect;
             // Native clients omit the redirect; the registered web callback is always used.
-            if (input.redirectUri && new URL(input.redirectUri).toString() !== expectedRedirect) {
+            const asked = input.redirectUri ? new URL(input.redirectUri).toString() : undefined;
+            if (asked && asked !== expectedRedirect && asked !== webRedirect) {
               throw new ORPCError(MCP_OAUTH_REDIRECT_MISMATCH, {
                 status: 400,
                 message: "The sign-in address does not match this server's configuration.",

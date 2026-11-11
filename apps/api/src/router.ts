@@ -152,6 +152,7 @@ export interface RouterDeps {
     computerSettingsEnabled?: boolean;
     mcpStdioEnabled?: boolean;
     mcpStdioAllowedCommands?: string[];
+    mcpOAuthRedirectOrigin?: string;
   };
 }
 

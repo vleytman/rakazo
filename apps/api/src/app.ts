@@ -779,6 +779,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       computerSettingsEnabled: env.computerSettingsEnabled,
       mcpStdioEnabled: env.mcpStdioEnabled,
       mcpStdioAllowedCommands: env.mcpStdioAllowedCommands,
+      ...(env.mcpOAuthRedirectOrigin ? { mcpOAuthRedirectOrigin: env.mcpOAuthRedirectOrigin } : {}),
     },
   });
   const rpc = new RPCHandler(router, {

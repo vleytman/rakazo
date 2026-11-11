@@ -173,6 +173,12 @@ export interface AppEnv {
   mcpStdio: ReturnType<typeof mcpStdioOptionsFromEnv>;
   /** Deployment-owner escape for remote MCP on RFC1918 / Docker-network hosts. */
   mcpAllowPrivateEndpoint: boolean;
+  /**
+   * Where MCP OAuth providers send the browser back, when not the web origin. Some providers
+   * (Upwork) accept only known domains or loopback, so a tailnet-only server registers
+   * http://localhost:<port> and a relay on the user's machine forwards to the web origin.
+   */
+  mcpOAuthRedirectOrigin?: string;
   port: number;
   gitSha: string | undefined;
   /** Oldest client build per kind the API still serves (RAKAZO_MIN_CLIENT_BUILD). */
@@ -357,6 +363,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
       .filter(Boolean),
     mcpStdio: mcpStdioOptionsFromEnv(source),
     mcpAllowPrivateEndpoint: source.MCP_ALLOW_PRIVATE_ENDPOINT === "true",
+    ...(source.MCP_OAUTH_REDIRECT_ORIGIN?.trim()
+      ? { mcpOAuthRedirectOrigin: new URL(source.MCP_OAUTH_REDIRECT_ORIGIN.trim()).origin }
+      : {}),
     port: Number(source.API_PORT ?? 3100),
     gitSha: optional(source.GIT_SHA) ?? optional(source.RAKAZO_GIT_SHA),
     minimumClientBuilds: parseMinimumClientBuilds(source.RAKAZO_MIN_CLIENT_BUILD),

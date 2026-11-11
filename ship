@@ -28,7 +28,7 @@ warn() { printf '\033[33m!\033[0m %s\n' "$*"; }
 die() { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 confirm() { local a; read -r -p "$1 [y/N] " a; case "$a" in y*|Y*|д*|Д*) return 0 ;; *) return 1 ;; esac; }
 remote() { ssh -o BatchMode=yes "$SSH_HOST" "$@"; }
-DC="cd $SERVER_DIR && docker compose --env-file .env -f docker-compose.images.yml"
+DC="cd $SERVER_DIR && docker compose --env-file .env -f docker-compose.images.yml \$(test -f docker-compose.override.yml && echo -f docker-compose.override.yml)"
 
 need_clean() {
   [[ -z "$(git status --porcelain --untracked-files=no)" ]] || die "Есть незакоммиченные изменения. Сначала git commit (или git stash)."

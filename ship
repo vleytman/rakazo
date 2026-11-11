@@ -1,0 +1,187 @@
+#!/usr/bin/env bash
+# ship — your Rakazo fork from upstream to the server.
+#
+#   ./ship status            what upstream has that you don't, your changes, what the server runs
+#   ./ship sync              pull upstream/main into the custom branch and check it compiles
+#   ./ship build             push custom and build the server image on GitHub (≈10–20 min)
+#   ./ship deploy [tag]      switch the server to an image (default: the current commit's)
+#   ./ship rollback          put the server back on the image it ran before the last deploy
+#   ./ship official          put the server back on the official upstream image (edge)
+#   ./ship all               sync → (you test locally) → build → deploy
+#
+# Settings (environment): RAKAZO_SSH (default rakazo), RAKAZO_DIR (default /opt/rakazo).
+set -euo pipefail
+cd "$(dirname "$0")"
+
+SSH_HOST=${RAKAZO_SSH:-rakazo}
+SERVER_DIR=${RAKAZO_DIR:-/opt/rakazo}
+BRANCH=custom
+REPO=$(git remote get-url origin | sed -E 's#.*github.com[:/]##; s#[.]git$##')
+IMAGE="ghcr.io/${REPO}/app"
+OFFICIAL_IMAGE=ghcr.io/elie222/rakazo/app
+WORKFLOW=fork-app-image.yml
+PNPM=(npx -y pnpm@12.18.0)
+
+bold() { printf '\033[1m%s\033[0m\n' "$*"; }
+ok() { printf '\033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '\033[33m!\033[0m %s\n' "$*"; }
+die() { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
+confirm() { local a; read -r -p "$1 [y/N] " a; case "$a" in y*|Y*|д*|Д*) return 0 ;; *) return 1 ;; esac; }
+remote() { ssh -o BatchMode=yes "$SSH_HOST" "$@"; }
+DC="cd $SERVER_DIR && docker compose --env-file .env -f docker-compose.images.yml"
+
+need_clean() {
+  [[ -z "$(git status --porcelain --untracked-files=no)" ]] || die "Есть незакоммиченные изменения. Сначала git commit (или git stash)."
+  [[ "$(git branch --show-current)" == "$BRANCH" ]] || die "Нужна ветка $BRANCH (сейчас $(git branch --show-current))."
+}
+
+server_image() {
+  remote "grep -E '^RAKAZO_IMAGE(_TAG)?=' $SERVER_DIR/.env | sort | cut -d= -f2 | paste -sd: -" 2>/dev/null || echo "?"
+}
+
+cmd_status() {
+  git fetch -q upstream main
+  git fetch -q origin 2>/dev/null || true
+  local behind ahead
+  behind=$(git rev-list --count HEAD..upstream/main)
+  ahead=$(git rev-list --count upstream/main..HEAD)
+  bold "Upstream (elie222/rakazo)"
+  if [[ "$behind" == 0 ]]; then ok "новых коммитов нет"; else
+    warn "новых коммитов: $behind"
+    git log --oneline --no-decorate -n 12 HEAD..upstream/main | sed 's/^/    /'
+    [[ "$behind" -gt 12 ]] && echo "    …"
+  fi
+  bold "Ваши правки ($BRANCH, $ahead)"
+  git log --oneline --no-decorate upstream/main..HEAD | sed 's/^/    /'
+  if git rev-parse -q --verify "origin/$BRANCH" >/dev/null; then
+    [[ "$(git rev-parse HEAD)" == "$(git rev-parse "origin/$BRANCH")" ]] && ok "на GitHub запушено" || warn "локально и на GitHub разное — запушит ./ship build"
+  else warn "ветка ещё не на GitHub"; fi
+  bold "Сервер"
+  local img; img=$(server_image)
+  echo "    образ: $img"
+  case "$img" in
+    "$IMAGE:sha-$(git rev-parse HEAD)") ok "работает текущий коммит" ;;
+    "$IMAGE:"*) warn "работает ваш образ, но не текущий коммит" ;;
+    *) warn "работает официальный образ" ;;
+  esac
+  remote "curl -fsS -m 5 http://127.0.0.1:3100/health >/dev/null" && ok "сервер отвечает" || warn "сервер не отвечает"
+}
+
+cmd_sync() {
+  need_clean
+  git fetch -q upstream main
+  local behind; behind=$(git rev-list --count HEAD..upstream/main)
+  [[ "$behind" == 0 ]] && { ok "upstream без изменений"; return 0; }
+  bold "Подтягиваю $behind коммит(ов) из upstream"
+  local before_lock; before_lock=$(git rev-parse HEAD:pnpm-lock.yaml)
+  git tag -f "before-sync-$(date +%Y%m%d-%H%M)" >/dev/null
+  if ! git rebase upstream/main; then
+    warn "Конфликт: upstream поменял те же места, что и вы."
+    echo "  Файлы с конфликтом:"; git diff --name-only --diff-filter=U | sed 's/^/    /'
+    echo "  Поправьте их, затем: git add <файлы> && git rebase --continue"
+    echo "  Или отмените всё: git rebase --abort"
+    exit 1
+  fi
+  ok "rebase прошёл"
+  if [[ "$(git rev-parse HEAD:pnpm-lock.yaml)" != "$before_lock" ]]; then
+    bold "Зависимости изменились — ставлю"
+    "${PNPM[@]}" install
+    warn "Перезапустите локальный Rakazo (./dev.sh), чтобы он подхватил новые зависимости."
+  fi
+  cmd_check
+  echo
+  ok "Готово. Проверьте локально (http://127.0.0.1:5173), потом ./ship build && ./ship deploy"
+}
+
+cmd_check() {
+  bold "Проверка типов"
+  "${PNPM[@]}" --filter @rakazo/core --filter @rakazo/ui-web --filter @rakazo/web check
+  bold "Тесты затронутых правками мест"
+  local tests
+  tests=$(git diff --name-only upstream/main..HEAD | sed -nE 's/\.(tsx?)$/.test.\1/p' | while read -r f; do [[ -f "$f" ]] && echo "$f"; done | sort -u)
+  if [[ -n "$tests" ]]; then
+    # shellcheck disable=SC2086
+    "${PNPM[@]}" exec vitest run $tests
+  else ok "тестов рядом с правками нет"; fi
+}
+
+cmd_build() {
+  need_clean
+  local sha; sha=$(git rev-parse HEAD)
+  bold "Пушу $BRANCH на GitHub"
+  git push -q --force-with-lease origin "$BRANCH"
+  if gh api "users/${REPO%%/*}/packages/container/rakazo%2Fapp/versions" --paginate -q '.[].metadata.container.tags[]' 2>/dev/null | grep -qx "sha-$sha"; then
+    ok "образ sha-$sha уже собран"; return 0
+  fi
+  bold "Запускаю сборку образа"
+  gh workflow run "$WORKFLOW" --ref "$BRANCH"
+  sleep 6
+  local run
+  for _ in $(seq 1 10); do
+    run=$(gh run list --workflow "$WORKFLOW" --branch "$BRANCH" --limit 5 --json databaseId,headSha -q ".[] | select(.headSha==\"$sha\") | .databaseId" | head -1)
+    [[ -n "$run" ]] && break; sleep 3
+  done
+  [[ -n "$run" ]] || die "Не нашёл запуск сборки. Посмотрите: gh run list --workflow $WORKFLOW"
+  echo "    https://github.com/$REPO/actions/runs/$run"
+  gh run watch "$run" --exit-status --interval 20 >/dev/null || die "Сборка упала: gh run view $run --log-failed"
+  ok "Образ готов: $IMAGE:sha-$sha"
+}
+
+cmd_deploy() {
+  local tag=${1:-sha-$(git rev-parse HEAD)}
+  local target="$IMAGE:$tag"
+  [[ "$tag" == official ]] && target="$OFFICIAL_IMAGE:edge"
+  local current; current=$(server_image)
+  [[ "$current" == "$target" ]] && { ok "сервер уже на $target"; return 0; }
+  bold "Сервер: $current → $target"
+  remote "docker pull -q ${target} >/dev/null" || die "Сервер не может скачать $target.
+  Либо образ ещё не собран (./ship build), либо он приватный. Сделать публичным (один раз):
+  https://github.com/users/${REPO%%/*}/packages/container/rakazo%2Fapp/settings → Change visibility → Public"
+  bold "Бэкап базы"
+  remote "/usr/local/bin/rakazo-backup.sh" && ok "бэкап в /var/backups/rakazo" || die "Бэкап не получился — не обновляю."
+  local image=${target%:*} itag=${target##*:}
+  remote "set -e; cd $SERVER_DIR; cp .env .env.bak-\$(date +%Y%m%d-%H%M%S)
+    grep -E '^RAKAZO_IMAGE(_TAG)?=' .env > .ship-previous || true
+    sed -i -e '/^RAKAZO_IMAGE=/d' -e '/^RAKAZO_IMAGE_TAG=/d' .env
+    printf 'RAKAZO_IMAGE=%s\nRAKAZO_IMAGE_TAG=%s\n' '$image' '$itag' >> .env
+    chmod 600 .env"
+  bold "Перезапуск"
+  if remote "$DC up -d --wait --wait-timeout 240 >/dev/null 2>&1" && remote "curl -fsS -m 10 http://127.0.0.1:3100/health >/dev/null"; then
+    ok "Сервер работает на $target"
+    remote "docker image prune -f >/dev/null 2>&1 || true"
+  else
+    warn "Сервер не поднялся на новом образе — откатываю"
+    cmd_rollback
+    die "Откатил. Логи: ssh $SSH_HOST '$DC logs --tail 80 api'"
+  fi
+}
+
+cmd_rollback() {
+  remote "test -s $SERVER_DIR/.ship-previous" || die "Нет записи о прошлом образе."
+  bold "Откат на: $(remote "cut -d= -f2 $SERVER_DIR/.ship-previous | paste -sd: -")"
+  remote "set -e; cd $SERVER_DIR; cp .env .env.bak-\$(date +%Y%m%d-%H%M%S)
+    sed -i -e '/^RAKAZO_IMAGE=/d' -e '/^RAKAZO_IMAGE_TAG=/d' .env
+    cat .ship-previous >> .env; chmod 600 .env"
+  remote "$DC up -d --wait --wait-timeout 240 >/dev/null 2>&1" && ok "Откат готов" || die "После отката сервер не поднялся: ssh $SSH_HOST '$DC ps'"
+}
+
+cmd_all() {
+  cmd_sync
+  echo
+  confirm "Проверили локально? Собирать и выкладывать на сервер?" || { warn "Остановился. Продолжить: ./ship build && ./ship deploy"; exit 0; }
+  cmd_build
+  cmd_deploy
+}
+
+case "${1:-status}" in
+  status) cmd_status ;;
+  sync) cmd_sync ;;
+  check) cmd_check ;;
+  build) cmd_build ;;
+  deploy) shift; cmd_deploy "${1:-}" ;;
+  rollback) cmd_rollback ;;
+  official) cmd_deploy official ;;
+  all) cmd_all ;;
+  -h|--help|help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *) die "Не знаю команду: $1 (./ship help)" ;;
+esac

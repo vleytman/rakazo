@@ -10,7 +10,7 @@ import {
   truncatePlainText,
 } from "@rakazo/core";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
-import { countUnreadInboxChats, membersSnoozing } from "@rakazo/db";
+import { countUnreadInboxChats, membersSnoozing, membersWithUnread } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { ExecutorDeps } from "./executor-deps.js";
 import { notificationIdentity } from "./notification-identity.js";
@@ -180,7 +180,7 @@ async function deliverChatNotice(
     retryOnFailure?: boolean;
   },
 ) {
-  const { spaceId, message, groupId, bot } = input;
+  const { spaceId, message, groupId } = input;
   // News in a chat waits for whoever snoozed it. Questions, takeovers and failures still reach
   // the person whose run it is: the chat is hidden, so this is how they would hear of it.
   const snoozing =
@@ -198,6 +198,49 @@ async function deliverChatNotice(
   }
   const notifications = deps.notifications;
   if (!notifications || !recipients.length) return;
+  // A reply is pushed only if it is still unread a little later: whoever has the chat open on
+  // another device (desktop, web) reads it there and gets no push on the phone.
+  const grace = message.kind === "completion" ? pushReadGraceMs() : 0;
+  if (grace > 0) {
+    const later = async () => {
+      await new Promise((resolve) => setTimeout(resolve, grace));
+      const unread = await membersWithUnread(deps.prisma, message.threadId, recipients).catch(
+        (error) => {
+          getLogger().error("unread members lookup", error);
+          return new Set(recipients);
+        },
+      );
+      const still = recipients.filter((userId) => unread.has(userId));
+      if (still.length)
+        await pushToRecipients(deps, notifications, { ...input, recipients: still });
+    };
+    if (input.retryOnFailure) await later();
+    else void later().catch((error) => getLogger().error("delayed run notification", error));
+    return;
+  }
+  await pushToRecipients(deps, notifications, { ...input, recipients });
+}
+
+/** Seconds a reply waits before its push (PUSH_READ_GRACE_SECONDS, default 30; 0 sends at once). */
+function pushReadGraceMs(): number {
+  // Tests send at once unless they set the variable.
+  const raw = Number(process.env.PUSH_READ_GRACE_SECONDS ?? (process.env.VITEST ? 0 : 30));
+  return Number.isFinite(raw) && raw > 0 ? Math.min(raw, 600) * 1000 : 0;
+}
+
+async function pushToRecipients(
+  deps: Pick<ExecutorDeps, "prisma">,
+  notifications: NonNullable<ExecutorDeps["notifications"]>,
+  input: {
+    spaceId: string;
+    recipients: string[];
+    message: NotificationMessage;
+    groupId: string | null;
+    bot?: { id: string; name: string; color: string; avatarSet: string };
+    retryOnFailure?: boolean;
+  },
+) {
+  const { spaceId, message, groupId, bot, recipients } = input;
   const sender = bot && (await notificationIdentity(bot));
   const deliver = async (userId: string) => {
     // The icon shows what the inbox shows: unread chats across the user's Spaces. Without a

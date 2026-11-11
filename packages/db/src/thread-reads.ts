@@ -191,3 +191,19 @@ export async function membersSnoozing(
   );
   return new Set(rows.map((row) => row.userId));
 }
+
+/** Of these members, the ones who have not read the chat yet (its latest message is still new). */
+export async function membersWithUnread(
+  prisma: PrismaClient,
+  threadId: string,
+  userIds: readonly string[],
+): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set();
+  const rows = await runAsSystem("find which members have not read a chat", () =>
+    prisma.threadRead.findMany({
+      where: { threadId, userId: { in: [...userIds] }, unread: true },
+      select: { userId: true },
+    }),
+  );
+  return new Set(rows.map((row) => row.userId));
+}

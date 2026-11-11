@@ -113,32 +113,13 @@ export const BotAvatar = memo(function BotAvatar({
         data-working={isWorking}
         style={{ width: size, height: size }}
       >
-        <div className="rakazo-bot-avatar-picture relative flex h-full w-full items-center justify-center overflow-hidden rounded-full border border-border bg-secondary">
-          <img src={parsed.imageUrl} alt="" className="h-full w-full object-cover" />
+        <div className="rakazo-bot-avatar-picture relative flex h-full w-full items-center justify-center overflow-hidden rounded-[23%] border border-border bg-secondary">
+          <img
+            src={parsed.imageUrl}
+            alt=""
+            className="rakazo-bot-avatar-image h-full w-full object-cover"
+          />
         </div>
-        {isWorking ? (
-          <svg
-            className="rakazo-bot-avatar-ring rakazo-bot-avatar-ring-working absolute pointer-events-none"
-            style={{
-              inset: -4,
-              width: size + 8,
-              height: size + 8,
-            }}
-            viewBox="0 0 48 48"
-            fill="none"
-            aria-hidden="true"
-          >
-            <circle
-              cx="24"
-              cy="24"
-              r="22"
-              className="stroke-status-working"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-              strokeDasharray="45 80"
-            />
-          </svg>
-        ) : null}
       </div>
     );
   }

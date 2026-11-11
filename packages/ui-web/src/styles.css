@@ -178,19 +178,25 @@
   }
 }
 
-.rakazo-bot-avatar-picture {
-  box-shadow: 0 2px 5px rgb(0 0 0 / 0.5);
-}
-
 .rakazo-bot-avatar-ring-working {
   filter: drop-shadow(0 0 4px var(--status-working));
 }
 
-.rakazo-bot-avatar[data-working="true"] .rakazo-bot-avatar-picture {
-  animation: rakazo-avatar-breathe 1.6s ease-in-out infinite;
-  box-shadow:
-    0 0 0 2px var(--status-working),
-    0 0 10px color-mix(in srgb, var(--status-working) 60%, transparent);
+/* Uploaded pictures work like the logo characters: the plate stays, the picture inside moves. */
+.rakazo-bot-avatar-image {
+  transform-origin: 50% 70%;
+}
+.rakazo-bot-avatar[data-working="true"] .rakazo-bot-avatar-image {
+  animation: rakazo-avatar-image-work 2.4s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes rakazo-avatar-image-work {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.04);
+  }
+  50% {
+    transform: translateY(-4%) scale(1.09);
+  }
 }
 
 .rakazo-organic-avatar-body {
@@ -461,7 +467,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rakazo-bot-avatar-ring,
-  .rakazo-bot-avatar[data-working="true"] .rakazo-bot-avatar-picture {
+  .rakazo-bot-avatar[data-working="true"] .rakazo-bot-avatar-image {
     animation: none;
     transition: none;
   }

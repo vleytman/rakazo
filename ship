@@ -108,22 +108,19 @@ cmd_check() {
 cmd_build() {
   need_clean
   local sha; sha=$(git rev-parse HEAD)
-  bold "Пушу $BRANCH на GitHub"
-  git push -q --force-with-lease origin "$BRANCH"
   if gh api "users/${REPO%%/*}/packages/container/rakazo%2Fapp/versions" --paginate -q '.[].metadata.container.tags[]' 2>/dev/null | grep -qx "sha-$sha"; then
     ok "образ sha-$sha уже собран"; return 0
   fi
-  bold "Запускаю сборку образа"
-  gh workflow run "$WORKFLOW" --ref "$BRANCH"
-  sleep 6
+  bold "Пушу $BRANCH на GitHub — это запускает сборку"
+  git push -q --force-with-lease origin "$BRANCH"
   local run
-  for _ in $(seq 1 10); do
-    run=$(gh run list --workflow "$WORKFLOW" --branch "$BRANCH" --limit 5 --json databaseId,headSha -q ".[] | select(.headSha==\"$sha\") | .databaseId" | head -1)
-    [[ -n "$run" ]] && break; sleep 3
+  for _ in $(seq 1 20); do
+    run=$(gh run list -R "$REPO" --branch "$BRANCH" --limit 10 --json databaseId,headSha,workflowName -q ".[] | select(.headSha==\"$sha\" and .workflowName==\"fork-app-image\") | .databaseId" | head -1)
+    [[ -n "$run" ]] && break; sleep 4
   done
-  [[ -n "$run" ]] || die "Не нашёл запуск сборки. Посмотрите: gh run list --workflow $WORKFLOW"
+  [[ -n "$run" ]] || die "Не нашёл запуск сборки. Посмотрите: gh run list -R $REPO --workflow $WORKFLOW"
   echo "    https://github.com/$REPO/actions/runs/$run"
-  gh run watch "$run" --exit-status --interval 20 >/dev/null || die "Сборка упала: gh run view $run --log-failed"
+  gh run watch -R "$REPO" "$run" --exit-status --interval 20 >/dev/null || die "Сборка упала: gh run view -R $REPO $run --log-failed"
   ok "Образ готов: $IMAGE:sha-$sha"
 }
 

@@ -1,9 +1,11 @@
 name: fork-app-image
 
 # Builds the app image of this fork for the self-hosted server (x86_64 only) and tags it
-# sha-<commit> and custom. Started by ./ship build; the upstream publish workflow builds three
-# images for two architectures, which this server does not need.
+# sha-<commit> and custom. Runs on every push to the custom branch (./ship build pushes); the
+# upstream publish workflow builds three images for two architectures, which this server does not need.
 on:
+  push:
+    branches: [custom]
   workflow_dispatch:
 
 permissions:

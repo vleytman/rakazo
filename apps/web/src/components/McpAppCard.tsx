@@ -40,6 +40,8 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
   const [height, setHeight] = useState(0);
   const [started, setStarted] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [mode, setMode] = useState<"inline" | "fullscreen">("inline");
+  const fullscreen = mode === "fullscreen";
   const html = useQuery({
     queryKey: ["mcp-app-html", block.artifactId],
     queryFn: () => fetchAppHtml(target, block.artifactId),
@@ -59,15 +61,15 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
   const hostContext = useMemo(
     () => ({
       theme,
-      displayMode: "inline",
-      availableDisplayModes: ["inline"],
-      containerDimensions: { maxHeight: MCP_APP_MAX_HEIGHT },
+      displayMode: mode,
+      availableDisplayModes: ["inline", "fullscreen"],
+      containerDimensions: fullscreen ? {} : { maxHeight: MCP_APP_MAX_HEIGHT },
       locale: i18n.locale,
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       platform: "web",
       deviceCapabilities: { touch, hover: !touch },
     }),
-    [theme, i18n.locale, touch],
+    [theme, i18n.locale, touch, mode, fullscreen],
   );
   // The view's session lasts as long as its document; these change without restarting it.
   const contextRef = useRef(hostContext);
@@ -119,6 +121,10 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
       offerMessage: (text) => offerComposerText(draftKey.current, text),
       onHeight: (next) =>
         setHeight(Math.min(Math.max(Math.ceil(next), MIN_HEIGHT), MCP_APP_MAX_HEIGHT)),
+      setDisplayMode: (next) => {
+        setMode(next);
+        return next;
+      },
     });
     return { ...created, usedGesture };
   }, [appDocument, csp]);
@@ -148,6 +154,8 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
         theme: hostContext.theme,
         locale: hostContext.locale,
         deviceCapabilities: hostContext.deviceCapabilities,
+        displayMode: hostContext.displayMode,
+        containerDimensions: hostContext.containerDimensions,
       }),
     [host, hostContext],
   );
@@ -158,15 +166,52 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
     return () => window.clearTimeout(timer);
   }, [appDocument, started]);
 
+  // Escape closes the overlay, as the close button does.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMode("inline");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
+
   if (html.isError || failed) return null;
   const bordered = block.prefersBorder !== false;
   return (
     <div ref={box} className="w-[960px] max-w-full" data-testid="mcp-app">
-      <div className="mb-1.5 px-1 text-label text-muted-foreground" dir="auto">
-        {block.server}
+      {fullscreen ? (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+          onClick={() => setMode("inline")}
+        />
+      ) : null}
+      <div
+        className={cn(
+          "mb-1.5 flex items-center gap-2 px-1 text-label text-muted-foreground",
+          fullscreen && "fixed inset-x-6 top-4 z-[51] mb-0 text-white sm:inset-x-10",
+        )}
+        dir="auto"
+      >
+        <span className="flex-1 truncate">{block.server}</span>
+        {fullscreen ? (
+          <button
+            type="button"
+            onClick={() => setMode("inline")}
+            className="rounded-md px-2 py-0.5 text-body-sm text-white/90 hover:bg-white/15"
+          >
+            ✕ Esc
+          </button>
+        ) : null}
       </div>
       <div
-        className={cn("overflow-hidden", bordered && "rounded-2xl border border-border bg-card")}
+        className={cn(
+          "overflow-hidden",
+          bordered && "rounded-2xl border border-border bg-card",
+          fullscreen &&
+            "fixed inset-x-6 top-11 bottom-6 z-[51] rounded-2xl border border-border bg-card shadow-2xl sm:inset-x-10",
+        )}
       >
         {appDocument ? (
           <iframe
@@ -181,7 +226,7 @@ export function McpAppCard({ block, target }: { block: AppBlock; target: Artifac
                 "*",
               )
             }
-            style={{ height: started && height ? height : MIN_HEIGHT * 2 }}
+            style={{ height: fullscreen ? "100%" : started && height ? height : MIN_HEIGHT * 2 }}
             // The shell declares no colour scheme; matching it keeps the frame see-through.
             className="block w-full border-0 [color-scheme:light]"
           />

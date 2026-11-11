@@ -217,7 +217,11 @@ export interface McpAppHostOptions {
   /** Puts text in the composer; the person still sends it. */
   offerMessage(text: string): void;
   onHeight(height: number): void;
+  /** Switches the view between inline and fullscreen; returns the mode now shown. Inline only when absent. */
+  setDisplayMode?(mode: McpAppDisplayMode): McpAppDisplayMode;
 }
+
+export type McpAppDisplayMode = "inline" | "fullscreen";
 
 const DENIED = -32000;
 const METHOD_NOT_FOUND = -32601;
@@ -251,8 +255,13 @@ export function createMcpAppHost(options: McpAppHostOptions) {
         });
       case "ping":
         return reply(id, {});
-      case "ui/request-display-mode":
+      case "ui/request-display-mode": {
+        const requested =
+          params && typeof params === "object" ? (params as { mode?: unknown }).mode : undefined;
+        if (options.setDisplayMode && (requested === "inline" || requested === "fullscreen"))
+          return reply(id, { mode: options.setDisplayMode(requested) });
         return reply(id, { mode: "inline" });
+      }
       case "ui/open-link": {
         const url = mcpAppLink(params);
         if (!url) return refuse(id, DENIED, "Invalid URL");

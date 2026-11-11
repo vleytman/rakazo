@@ -45,6 +45,8 @@ export function pageViewerDocument(input: {
   bottomInset?: number;
   /** The reader's app language, for the kit's own words when the page does not set `lang`. */
   lang?: string;
+  /** False for a preview: it is never scrolled, so its scrollbar would only be noise. */
+  scrollbars?: boolean;
 }): string {
   const boot = JSON.stringify({
     code: input.code,
@@ -64,6 +66,9 @@ export function pageViewerDocument(input: {
       ? `<style>@media screen{:root[data-theme]{--background:${input.surface}}}</style>`
       : "",
     inset,
+    input.scrollbars === false
+      ? "<style>html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}</style>"
+      : "",
     "</head>",
     `<body><div id="root"></div><script>RakazoPage.mount(${boot})</script></body></html>`,
   ].join("");

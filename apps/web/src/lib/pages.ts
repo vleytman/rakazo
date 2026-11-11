@@ -70,6 +70,8 @@ export function usePageDocument(
   reply = false,
   /** Pixels a composer docked over the page's bottom covers. */
   bottomInset = 0,
+  /** A chat card's preview: drawn without scrollbars, since nobody scrolls it. */
+  preview = false,
 ): { document: string | null; failed: boolean; retry: () => void } {
   const { t, i18n } = useLingui();
   const theme = useAppTheme();
@@ -93,8 +95,20 @@ export function usePageDocument(
             reply,
             bottomInset,
             lang: i18n.locale,
+            scrollbars: !preview,
           }),
-    [runtime.data, code, theme, errorTitle, surface, touch, reply, bottomInset, i18n.locale],
+    [
+      runtime.data,
+      code,
+      theme,
+      errorTitle,
+      surface,
+      touch,
+      reply,
+      bottomInset,
+      i18n.locale,
+      preview,
+    ],
   );
   const { refetch } = runtime;
   const retry = useCallback(() => void refetch(), [refetch]);

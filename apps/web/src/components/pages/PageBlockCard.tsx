@@ -31,7 +31,7 @@ export function PageBlockCard({ block, updated }: { block: PageBlock; updated: b
     }
   }, [updated, currentVersion, block.version, block.pageId, queries, queryClient]);
   const shown = updated ? saved.data : current.data;
-  const viewer = usePageDocument(shown?.code);
+  const viewer = usePageDocument(shown?.code, "card", false, 0, true);
   const deleted = errorCode(current.error) === "NOT_FOUND";
   const unread = shown === undefined && (updated ? saved.isError : current.isError);
   return (

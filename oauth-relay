@@ -9,7 +9,7 @@ forwards http://localhost:33419/mcp/oauth/callback?... to the same path on the w
   ./oauth-relay install         keep it running in the background (macOS launchd)
   ./oauth-relay uninstall
 """
-import http.server, os, subprocess, sys
+import http.server, os, subprocess, sys, time
 from urllib.parse import urlsplit
 
 PORT = int(os.environ.get("RELAY_PORT", "33419"))
@@ -21,6 +21,13 @@ PLIST = os.path.expanduser(f"~/Library/LaunchAgents/{LABEL}.plist")
 class Relay(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlsplit(self.path)
+        # Which requests came in, without their values (the code is a credential).
+        try:
+            keys = sorted(k.split("=")[0] for k in path.query.split("&") if k)
+            with open(os.path.expanduser("~/Library/Logs/rakazo-oauth-relay.log"), "a") as log:
+                log.write(f"{time.strftime('%F %T')} {path.path} params={keys} ua={self.headers.get('User-Agent', '')[:80]}\n")
+        except OSError:
+            pass
         if path.path != "/mcp/oauth/callback":
             self.send_error(404)
             return

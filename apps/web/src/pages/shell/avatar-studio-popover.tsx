@@ -204,9 +204,7 @@ export function AvatarStudioPopover({
         canvas.height = targetSize;
         if (!ctx) return;
 
-        ctx.beginPath();
-        ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2, 0, Math.PI * 2);
-        ctx.clip();
+        // Kept square: the avatar plate rounds the corners when it is drawn.
 
         const minDim = Math.min(img.width, img.height);
         const sx = (img.width - minDim) / 2;

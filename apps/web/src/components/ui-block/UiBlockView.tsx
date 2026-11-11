@@ -666,7 +666,7 @@ function Choices({
           onKeyDown={(event) => {
             if (event.key === "Enter") void submit();
           }}
-          placeholder={t`Your own answer…`}
+          placeholder={node.otherPlaceholder ?? t`Your own answer…`}
           className="w-full rounded-xl border border-border bg-transparent px-3.5 py-2.5 text-body text-foreground outline-none focus:border-primary"
         />
       ) : null}

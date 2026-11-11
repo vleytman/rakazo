@@ -26,7 +26,8 @@ Nodes ("type" picks the node):
   — up to 200 rows; sortable; give columns with labels in the user's language
 - chart {chart: "line"|"bar"|"area", x: string[], series: [{name, values: number[]}], unit?, title?}
   — line/area for time, bar for categories; up to 6 series
-- choices {question?, options: [{label, hint?}], multiple?: bool, allowOther?: bool, submitLabel?}
+- choices {question?, options: [{label, hint?}], multiple?: bool, allowOther?: bool, submitLabel?, otherPlaceholder?}
+  — set submitLabel (e.g. "Отправить") and otherPlaceholder (e.g. "Свой вариант…") in the user's language
   — the user picks and presses send; their answer arrives as their next message. After a
   choices node, end your turn and wait.
 - buttons {buttons: [{label, message?, url?, variant?: "primary"|"secondary"}]} — one click sends

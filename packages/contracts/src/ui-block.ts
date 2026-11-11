@@ -92,6 +92,7 @@ const Choices = z.object({
   multiple: z.boolean().default(false),
   allowOther: z.boolean().default(false),
   submitLabel: z.string().max(40).optional(),
+  otherPlaceholder: z.string().max(80).optional(),
 });
 
 const Buttons = z.object({

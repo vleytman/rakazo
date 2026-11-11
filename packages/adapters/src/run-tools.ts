@@ -16,6 +16,7 @@ import { computerTools, pageBrowserTool } from "./run-tools-computer.js";
 import { emailTools } from "./run-tools-email.js";
 import { feedbackTools } from "./run-tools-feedback.js";
 import { fileTools } from "./run-tools-files.js";
+import { uiTools } from "./run-tools-ui.js";
 import { fleetTools } from "./run-tools-fleet.js";
 import { cloudAgentTool, connectorTool, integrationTools } from "./run-tools-integrations.js";
 import { memoryTools } from "./run-tools-memory.js";
@@ -41,6 +42,7 @@ import { argumentGiven } from "./update-bot-patch.js";
 const TOOL_HANDLERS = new Map<string, ToolHandler>([
   ...Object.entries(computerTools),
   ...Object.entries(fileTools),
+  ...Object.entries(uiTools),
   ...Object.entries(pageTools),
   ...Object.entries(memoryTools),
   ...Object.entries(integrationTools),

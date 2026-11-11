@@ -5,6 +5,7 @@ import { Id, ThinkingLevelSchema } from "./ids.js";
 import { McpTransportSchema } from "./mcp.js";
 import { McpAppCspSchema } from "./mcp-app.js";
 import { PAGE_TITLE_MAX_LENGTH } from "./pages.js";
+import { UiBlockSchema } from "./ui-block.js";
 
 export const ProductEventType = z.enum([
   "thread.message.created",
@@ -123,6 +124,7 @@ export type AskReceipt = z.infer<typeof AskReceipt>;
 
 export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
+  UiBlockSchema,
   z.object({
     kind: z.literal("card"),
     lines: z.array(z.object({ k: z.string(), v: z.string() })),

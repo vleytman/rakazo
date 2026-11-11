@@ -40,6 +40,7 @@ describe("built-in tool bridge", () => {
       "read_file",
       "read_history",
       "remember",
+      "render_ui",
       "request_secret",
       "request_takeover",
       "run_subagent",
@@ -59,7 +60,8 @@ describe("built-in tool bridge", () => {
     // the history tools point at files from earlier messages; a watch says it takes no other timing;
     // read_file takes a line range; ask_user carries the content being decided about;
     // search_history lists earlier tool work by kind without a keyword.
-    expect(definitionBytes(listed)).toBeLessThanOrEqual(32_579);
+    // render_ui (fork) is listed so bots reach for it without a search.
+    expect(definitionBytes(listed)).toBeLessThanOrEqual(33_454);
     expect(deferred.map((tool) => tool.name)).toEqual(
       expect.arrayContaining(["render_plot", "create_space", "generate_secret", "scratchpad_add"]),
     );

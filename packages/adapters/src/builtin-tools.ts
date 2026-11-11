@@ -27,6 +27,7 @@ import {
 import { z } from "zod";
 import { allowPrivateHttpSecretOrigins } from "./bot-secrets.js";
 import { BROWSER_ACT_KINDS } from "./browser-tools.js";
+import { RENDER_UI_TOOL } from "./run-tools-ui.js";
 import { SCHEDULE_TIMING_FIELDS } from "./schedule-tools.js";
 import { messageUserMaxLength } from "./user-progress.js";
 import { MAX_WEB_FETCH_OFFSET } from "./web-limits.js";
@@ -658,6 +659,7 @@ export const builtinAgentTools: ConnectorTool[] = [
       "Remove a saved credential for this bot and user, preventing future requests from using it.",
     inputSchema: z.toJSONSchema(z.object({ name: BotSecretName })),
   },
+  RENDER_UI_TOOL,
   {
     name: "render_plot",
     description:

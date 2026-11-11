@@ -157,6 +157,7 @@ async function withoutPeerRunMessages<
         block.kind === "ask" ||
         block.kind === "text" ||
         block.kind === "chart" ||
+        block.kind === "ui" ||
         block.kind === "app" ||
         block.kind === "file" ||
         block.kind === "image" ||
@@ -227,6 +228,7 @@ export function shouldForwardPeerThreadEvent(event: {
           block.kind === "ask" ||
           block.kind === "text" ||
           block.kind === "chart" ||
+          block.kind === "ui" ||
           block.kind === "app" ||
           block.kind === "file" ||
           block.kind === "image" ||

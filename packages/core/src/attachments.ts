@@ -246,6 +246,8 @@ export function blocksToAgentHistoryText(
       if (block.kind === "text") return fromBot ? withoutCopiedToolSteps(block.text) : block.text;
       if (block.kind === "steps") return toolSteps ? toolStepsHistoryText(block.steps) : "";
       if (block.kind === "chart") return `[chart: ${block.name}]`;
+      // The fallback text block that follows carries the content.
+      if (block.kind === "ui") return `[interface: ${block.title ?? "render_ui"}]`;
       if (block.kind === "app") return `[app: ${block.server} showed ${block.tool}]`;
       if (block.kind === "image") return `[image: ${block.name}]`;
       // The id lets a later turn, or another chat, update this page instead of making a new one.

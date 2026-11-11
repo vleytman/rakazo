@@ -400,6 +400,11 @@ export function userTurnInstructions(parts: {
     parts.taughtSkillsLine,
     offeredBuiltinClause(
       parts.disabledBuiltinTools,
+      "render_ui",
+      'For structured answers (comparisons, figures, plans, a question with options) show a native interface with render_ui instead of long markdown: tables, KPI tiles, charts, callouts, buttons and choices composed in a stack. Call it with {"help": true} before your first interface. Don\'t repeat what it shows in your reply.',
+    ),
+    offeredBuiltinClause(
+      parts.disabledBuiltinTools,
       "render_plot",
       'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. Call render_plot with {"help": true} before your first chart to read the full guide.',
     ),

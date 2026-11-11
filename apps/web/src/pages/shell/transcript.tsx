@@ -593,7 +593,7 @@ export const Transcript = memo(function Transcript({
                               (block) => block.kind === "ask" || block.kind === "mcp_approval",
                             )
                           ? "relative w-full min-w-0 max-w-xl"
-                          : `relative ${message.blocks.some((block) => block.kind === "app_connect" || block.kind === "page" || block.kind === "app") || pageView.pages.has(message.id) ? "w-full" : "w-fit"} min-w-0 ${message.blocks.some((block) => block.kind === "app") ? "max-w-[min(100%,60rem)]" : bubbleFrameWidth(message.role)}`
+                          : `relative ${message.blocks.some((block) => block.kind === "app_connect" || block.kind === "page" || block.kind === "app" || block.kind === "ui") || pageView.pages.has(message.id) ? "w-full" : "w-fit"} min-w-0 ${message.blocks.some((block) => block.kind === "app" || block.kind === "ui") ? "max-w-[min(100%,60rem)]" : bubbleFrameWidth(message.role)}`
                     }
                   >
                     <MessageView

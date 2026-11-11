@@ -27,6 +27,7 @@ import {
   ToolSteps,
 } from "../../components/ToolActivityDisclosure";
 import { SkillDraftCard } from "../../components/teach/SkillDraftCard";
+import { UiBlockView, withoutUiFallbacks } from "../../components/ui-block/UiBlockView";
 import type { ArtifactTarget } from "../../lib/artifact-open";
 import { messageProviderLabel } from "../../lib/messaging";
 import type { PageBlock } from "../../lib/page-cards";
@@ -148,10 +149,10 @@ export const MessageView = memo(function MessageView({
     () =>
       mentions?.length
         ? withBlockMentions(
-            message.blocks,
+            withoutUiFallbacks(message.blocks),
             mentions.map((bot) => ({ id: bot.botId, name: bot.name })),
           )
-        : message.blocks,
+        : withoutUiFallbacks(message.blocks),
     [message.blocks, mentions],
   );
   const openPage = useOpenPage();
@@ -495,6 +496,13 @@ export const MessageView = memo(function MessageView({
             return (
               <div key={i} className="flex justify-start">
                 <ChartBlockView name={block.name} spec={block.spec} data={block.data} />
+              </div>
+            );
+          }
+          if (block.kind === "ui") {
+            return (
+              <div key={i} className="flex justify-start">
+                <UiBlockView block={block} target={artifactTarget} />
               </div>
             );
           }

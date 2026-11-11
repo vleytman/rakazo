@@ -175,6 +175,8 @@ function replyBlockText(block: MessageBlock): string {
     case "mcp_approval":
     case "chart":
       return block.name;
+    case "ui":
+      return block.title ?? block.fallback.slice(0, 80);
     case "app":
       return block.server;
     case "import_setup":

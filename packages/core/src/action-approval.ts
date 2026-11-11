@@ -251,6 +251,7 @@ const OWN_STATE_RESULT_TOOLS = new Set([
   "recall_memory",
   "remember",
   "render_plot",
+  "render_ui",
   "request_secret",
   "save_memory",
   "save_page",

@@ -465,6 +465,7 @@ function Chart({ node }: { node: Extract<UiNode, { type: "chart" }> }) {
                 x={L - 6}
                 y={yAt(t) + 4}
                 textAnchor="end"
+                // off-scale: SVG axis labels use viewBox units and scale with the chart.
                 className="fill-muted-foreground text-[11px]"
               >
                 {num(t)}
@@ -478,6 +479,7 @@ function Chart({ node }: { node: Extract<UiNode, { type: "chart" }> }) {
                 x={xAt(i)}
                 y={H - 8}
                 textAnchor="middle"
+                // off-scale: SVG axis labels use viewBox units and scale with the chart.
                 className="fill-muted-foreground text-[11px]"
               >
                 {label.length > 12 ? `${label.slice(0, 11)}…` : label}

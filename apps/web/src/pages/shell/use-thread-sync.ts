@@ -47,7 +47,9 @@ import type { useBrowserNotifications } from "./use-browser-notifications";
 import type { ComputerState } from "./use-computer";
 import type { ThreadState } from "./use-thread-state";
 
-const THREAD_SNAPSHOT_TIMEOUT_MS = 2_000;
+// Allow the full history response to arrive on slower connections. A short
+// deadline repeatedly discards useful reads; leaving the chat still aborts immediately.
+const THREAD_SNAPSHOT_TIMEOUT_MS = 30_000;
 
 function threadSnapshotSignal(parent: AbortSignal): AbortSignal {
   return anySignal([parent, AbortSignal.timeout(THREAD_SNAPSHOT_TIMEOUT_MS)]);

@@ -468,3 +468,67 @@ it.each([false, true])(
     vi.restoreAllMocks();
   },
 );
+
+it.each([false, true])(
+  "finishes a slow %s group history read, bounds stalled reads, and cancels on leave",
+  async (inGroup) => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.useFakeTimers();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockImplementation((ms) => {
+      const controller = new AbortController();
+      setTimeout(() => controller.abort(new DOMException("Timed out", "TimeoutError")), ms);
+      return controller.signal;
+    });
+    const snapshot = {
+      botId: inGroup ? undefined : "bot-1",
+      groupId: inGroup ? "group-1" : undefined,
+      threadId: "thread-1",
+      cursor: 1,
+      messages: [],
+      olderCursor: null,
+      run: null,
+    } as ThreadSnapshot;
+    let signal: AbortSignal | undefined;
+    const get = vi.fn((_target: unknown, options?: { signal?: AbortSignal }) => {
+      signal = options?.signal;
+      const first = get.mock.calls.length === 1;
+      return new Promise<ThreadSnapshot>((resolve, reject) => {
+        signal?.addEventListener("abort", () => reject(signal?.reason), { once: true });
+        if (first) setTimeout(() => resolve(snapshot), 6_000);
+      });
+    });
+    const commitSnapshot = vi.fn();
+    const input = syncInput({ inGroup, get: get as never, commitSnapshot });
+    const root = createRoot(document.createElement("div"));
+    let unmounted = false;
+    try {
+      function Probe() {
+        useThreadSync(input);
+        return null;
+      }
+      await act(async () => root.render(createElement(Probe)));
+      const subscription = vi.mocked(runThreadSubscription).mock.calls[0]![0];
+      const initial = subscription.loadInitial().catch((error: unknown) => error);
+      await act(async () => vi.advanceTimersByTimeAsync(6_000));
+      expect(await initial).toEqual(snapshot);
+      expect(commitSnapshot).toHaveBeenCalledWith(snapshot);
+      expect(signal?.aborted).toBe(false);
+
+      const stalled = subscription.refresh().catch((error: unknown) => error);
+      await act(async () => vi.advanceTimersByTimeAsync(30_000));
+      expect(signal?.aborted).toBe(true);
+      expect(await stalled).toMatchObject({ name: "TimeoutError" });
+
+      const leaving = subscription.refresh().catch((error: unknown) => error);
+      await act(async () => root.unmount());
+      unmounted = true;
+      expect(signal?.aborted).toBe(true);
+      expect(await leaving).toMatchObject({ name: "AbortError" });
+      expect(commitSnapshot).toHaveBeenCalledTimes(1);
+    } finally {
+      if (!unmounted) await act(async () => root.unmount());
+      timeout.mockRestore();
+      vi.useRealTimers();
+    }
+  },
+);
